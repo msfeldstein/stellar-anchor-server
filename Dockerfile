@@ -17,4 +17,4 @@ RUN pip install pipenv
 RUN pipenv update
 RUN pipenv install
 
-CMD ["pipenv", "run", "python", "src/manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["pipenv", "run", "python", "-u", "src/manage.py", "runserver", "0.0.0.0:8000"]

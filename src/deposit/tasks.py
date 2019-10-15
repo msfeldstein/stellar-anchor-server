@@ -7,6 +7,7 @@ from stellar_base.address import Address
 from stellar_base.builder import Builder
 from stellar_base.exceptions import HorizonError, StellarError
 from stellar_base.horizon import Horizon
+from stellar_base.keypair import Keypair
 
 from app.celery import app
 from transaction.models import Transaction
@@ -19,6 +20,7 @@ SUCCESS_XDR = "AAAAAAAAAGQAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAA="
 def create_stellar_deposit(transaction_id):
     """Create and submit the Stellar transaction for the deposit."""
     transaction = Transaction.objects.get(id=transaction_id)
+    print(">>>>> Create stellar deposit")
 
     # We check the Transaction status to avoid double submission of a Stellar
     # transaction. The Transaction can be either `pending_anchor` if the task
@@ -50,27 +52,57 @@ def create_stellar_deposit(transaction_id):
     )
     try:
         address.get()
+        print(">>>> Actually i did get the account")
     except HorizonError as address_exc:
+        print(">>>> No address yet")
+        print(">>>>> ${address_exc.status_code}")
         # 404 code corresponds to Resource Missing.
         if address_exc.status_code != 404:
             return
+        intermediate_account = Keypair.random()
+        intermediate_key = intermediate_account.address().decode()
+        print(">>>> Generated random account " +
+              intermediate_key)
         starting_balance = settings.ACCOUNT_STARTING_BALANCE
+        anchor_address = settings.STELLAR_ACCOUNT_ADDRESS
         builder = Builder(
             secret=settings.STELLAR_ACCOUNT_SEED,
             horizon_uri=settings.HORIZON_URI,
             network=settings.STELLAR_NETWORK,
         )
         builder.append_create_account_op(
-            destination=stellar_account,
-            starting_balance=starting_balance,
-            source=settings.STELLAR_ACCOUNT_ADDRESS,
+            destination=intermediate_key,
+            starting_balance="40",
+            source=anchor_address,
+        )
+        builder.append_change_trust_op(
+            transaction.asset.name, anchor_address,
+            source=intermediate_key)
+        builder.append_payment_op(
+            source=anchor_address,
+            destination=intermediate_key,
+            asset_code=transaction.asset.name,
+            asset_issuer=anchor_address,
+            amount=str(payment_amount)
+        )
+        builder.append_set_options_op(
+            source=intermediate_key,
+            master_weight=0,
+            signer_address=transaction.stellar_account,
+            signer_weight=1,
+            signer_type="ed25519PublicKey",
         )
         builder.sign()
+        builder.sign(intermediate_account.seed())
         try:
-            builder.submit()
-        except HorizonError:
+            resp = builder.submit()
+            print("Response", resp)
+        except HorizonError as err:
+            print(">>>>>>>> HORIZON ERROR", err)
             return
-        transaction.status = Transaction.STATUS.pending_trust
+        print(">>>>> Submitted intermediate account " +
+              intermediate_key)
+        transaction.status = Transaction.STATUS.pending_user
         transaction.save()
         return
 
@@ -120,7 +152,9 @@ def check_trustlines():
     Create Stellar transaction for deposit transactions marked as pending trust, if a
     trustline has been created.
     """
-    transactions = Transaction.objects.filter(status=Transaction.STATUS.pending_trust)
+    print("HELLO I AM RUNNING check_trustlines")
+    transactions = Transaction.objects.filter(
+        status=Transaction.STATUS.pending_trust)
     horizon = Horizon(horizon_uri=settings.HORIZON_URI)
     for transaction in transactions:
         try:

@@ -107,6 +107,7 @@ def confirm_transaction(request):
             "no transaction with matching 'transaction_id' exists"
         )
 
+    # todo why does 
     amount_str = request.GET.get("amount")
     if not amount_str:
         return render_error_response("no 'amount' provided")

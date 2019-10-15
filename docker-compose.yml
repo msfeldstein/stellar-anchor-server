@@ -18,7 +18,7 @@ services:
       && pipenv run python src/manage.py runserver 0.0.0.0:8000"
   watch_transactions:
     build: .
-    volumes: 
+    volumes:
       - .:/code/
     depends_on:
       - redis
