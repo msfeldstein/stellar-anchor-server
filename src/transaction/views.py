@@ -98,12 +98,12 @@ def more_info(request):
         context={
             "tx_json": tx_json,
             "transaction": request_transaction,
-            "asset_code": request_transaction.asset.name,
+            "asset_code": request_transaction.asset.code,
         },
     )
 
 
-@validate_sep10_token(settings.TRANSACTIONS_AUTH_REQUIRED)
+@validate_sep10_token()
 @api_view()
 def transactions(request):
     """
@@ -122,7 +122,7 @@ def transactions(request):
         )
 
     translation_dict = {
-        "asset_code": "asset__name",
+        "asset_code": "asset__code",
         "account": "stellar_account",
         "no_older_than": "started_at__gte",
         "kind": "kind",
@@ -153,7 +153,7 @@ def transactions(request):
     return Response({"transactions": serializer.data})
 
 
-@validate_sep10_token(settings.TRANSACTION_AUTH_REQUIRED)
+@validate_sep10_token()
 @api_view()
 def transaction(request):
     """

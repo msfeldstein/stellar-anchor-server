@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 import os
 import environ
 
+from stellar_base.keypair import Keypair
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_DIR = os.path.dirname(BASE_DIR)
@@ -37,8 +39,11 @@ DEBUG = env.bool("DJANGO_DEBUG", False)
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 
-STELLAR_ACCOUNT_ADDRESS = env("STELLAR_ACCOUNT_ADDRESS")
-STELLAR_ACCOUNT_SEED = env("STELLAR_ACCOUNT_SEED")
+STELLAR_DISTRIBUTION_ACCOUNT_SEED = env("STELLAR_DISTRIBUTION_ACCOUNT_SEED")
+STELLAR_DISTRIBUTION_ACCOUNT_ADDRESS = (
+    Keypair.from_seed(STELLAR_DISTRIBUTION_ACCOUNT_SEED).address().decode("utf-8")
+)
+STELLAR_ISSUER_ACCOUNT_ADDRESS = env("STELLAR_ISSUER_ACCOUNT_ADDRESS")
 STELLAR_NETWORK = env("STELLAR_NETWORK", default="TESTNET")
 HORIZON_URI = env("HORIZON_URI", default="https://horizon-testnet.stellar.org/")
 REDIS_URL = env("REDIS_URL", default=None)
@@ -46,12 +51,6 @@ SERVER_JWT_KEY = env("SERVER_JWT_KEY")
 OPERATION_DEPOSIT = "deposit"
 OPERATION_WITHDRAWAL = "withdraw"
 ACCOUNT_STARTING_BALANCE = str(2.01)
-
-WITHDRAW_AUTH_REQUIRED = env("WITHDRAW_AUTH_REQUIRED", default=False)
-DEPOSIT_AUTH_REQUIRED = env("DEPOSIT_AUTH_REQUIRED", default=False)
-FEE_AUTH_REQUIRED = env("FEE_AUTH_REQUIRED", default=False)
-TRANSACTIONS_AUTH_REQUIRED = env("TRANSACTIONS_AUTH_REQUIRED", default=False)
-TRANSACTION_AUTH_REQUIRED = env("TRANSACTION_AUTH_REQUIRED", default=False)
 
 # Application definition
 DJANGO_APPS = [
@@ -147,8 +146,9 @@ USE_TZ = True
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATIC_URL = "/static/"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
-
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'static'),
+)
 # Django Rest Framework Settings:
 
 REST_FRAMEWORK = {

@@ -590,8 +590,8 @@ def test_deposit_check_trustlines_horizon(
     from stellar_base.builder import Builder
 
     print("Create trustline.")
-    asset_code = deposit.asset.name
-    asset_issuer = settings.STELLAR_ACCOUNT_ADDRESS
+    asset_code = deposit.asset.code
+    asset_issuer = settings.STELLAR_DISTRIBUTION_ACCOUNT_ADDRESS
     Asset(code=asset_code, issuer=asset_issuer)
     builder = Builder(
         secret=keypair.seed(),
@@ -616,7 +616,6 @@ def test_deposit_authenticated_success(client, acc1_usd_deposit_transaction_fact
     """`GET /deposit` succeeds with the SEP 10 authentication flow."""
     client_address = "GDKFNRUATPH4BSZGVFDRBIGZ5QAFILVFRIRYNSQ4UO7V2ZQAPRNL73RI"
     client_seed = "SDKWSBERDHP3SXW5A3LXSI7FWMMO5H7HG33KNYBKWH2HYOXJG2DXQHQY"
-    settings.DEPOSIT_AUTH_REQUIRED = True
     deposit = acc1_usd_deposit_transaction_factory()
 
     # SEP 10.

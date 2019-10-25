@@ -52,24 +52,23 @@ def format_memo_horizon(memo):
     return (codecs.encode(codecs.decode(memo, "hex"), "base64").decode("utf-8")).strip()
 
 
-def check_auth(request, needs_auth, func):
+def check_auth(request, func):
     """
-    Check SEP 10 authentication in a request if needed.
+    Check SEP 10 authentication in a request.
     Else call the original view function.
     """
-    if needs_auth:
-        jwt_error_str = validate_jwt_request(request)
-        if jwt_error_str:
-            return render_error_response(jwt_error_str)
+    jwt_error_str = validate_jwt_request(request)
+    if jwt_error_str:
+        return render_error_response(jwt_error_str)
     return func(request)
 
 
-def validate_sep10_token(needs_auth=True):
+def validate_sep10_token():
     """Decorator to validate the SEP 10 token in a request."""
 
     def decorator(view):
         def wrapper(request, *args, **kwargs):
-            return check_auth(request, needs_auth, view)
+            return check_auth(request, view)
 
         return wrapper
 
@@ -96,7 +95,7 @@ def validate_jwt_request(request):
     jwt_dict = jwt.decode(encoded_jwt, settings.SERVER_JWT_KEY, algorithms=["HS256"])
     if jwt_dict["iss"] != request.build_absolute_uri("/auth"):
         return "'jwt' has incorrect 'issuer'"
-    if jwt_dict["sub"] != settings.STELLAR_ACCOUNT_ADDRESS:
+    if jwt_dict["sub"] != settings.STELLAR_DISTRIBUTION_ACCOUNT_ADDRESS:
         return "'jwt' has incorrect 'subject'"
     current_time = time.time()
     if current_time < jwt_dict["iat"] or current_time > jwt_dict["exp"]:
