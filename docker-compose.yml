@@ -32,3 +32,5 @@ services:
     depends_on:
       - redis
       - server
+    stdin_open: true
+    tty: true

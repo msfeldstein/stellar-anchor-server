@@ -19,7 +19,6 @@ SUCCESS_XDR = "AAAAAAAAAGQAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAA="
 
 logger = logging.getLogger(__name__)
 
-
 @app.task
 def create_stellar_deposit(transaction_id):
     """Create and submit the Stellar transaction for the deposit."""
@@ -52,7 +51,7 @@ def create_stellar_deposit(transaction_id):
     # the account with at least enough XLM for the minimum
     # reserve and a trust line (recommended 2.01 XLM), update
     # the transaction in our internal database, and return.
-
+    print(">>> Stellar account" + stellar_account)
     address = Address(
         stellar_account,
         network=settings.STELLAR_NETWORK,
@@ -70,33 +69,39 @@ def create_stellar_deposit(transaction_id):
                 "error with message %s when loading stellar account",
                 address_exc.message,
             )
+            print(">>>> Not 404")
             return
         intermediate_account = Keypair.random()
         intermediate_key = intermediate_account.address().decode()
         print(">>>> Generated random account " + intermediate_key)
         starting_balance = settings.ACCOUNT_STARTING_BALANCE
         anchor_keypair = Keypair.from_seed(settings.STELLAR_DISTRIBUTION_ACCOUNT_SEED)
-        anchor_address = anchor_keypair.public_key()
+        anchor_address = anchor_keypair.address()
+        print(f">>>> Distribution account {anchor_address}")
         builder = Builder(
             secret=settings.STELLAR_DISTRIBUTION_ACCOUNT_SEED,
             horizon_uri=settings.HORIZON_URI,
             network=settings.STELLAR_NETWORK,
         )
+        print(">>>> create_account_op")
         builder.append_create_account_op(
             destination=intermediate_key,
             starting_balance="40",
             source=anchor_address,
         )
+        print(">>>> change_trust")
         builder.append_change_trust_op(
-            transaction.asset.name, anchor_address,
+            transaction.asset.code, transaction.asset.issuer,
             source=intermediate_key)
+        print(">>>> payment")
         builder.append_payment_op(
             source=anchor_address,
             destination=intermediate_key,
-            asset_code=transaction.asset.name,
-            asset_issuer=anchor_address,
+            asset_code=transaction.asset.code,
+            asset_issuer=transaction.asset.issuer,
             amount=str(payment_amount)
         )
+        print(">>>> set_options")
         builder.append_set_options_op(
             source=intermediate_key,
             master_weight=0,
@@ -109,6 +114,9 @@ def create_stellar_deposit(transaction_id):
         try:
             builder.submit()
         except HorizonError as submit_exc:
+            print(">>>> Something went wrong!!!!! ")
+            # op_src_no_trust means you don't have any assets or trustlines in the distribution account. Run create-stellar-token
+            print(submit_exc)
             logger.debug(f"error with message {submit_exc.message} when submitting create account to horizon")
             return
         print(">>>>> Submitted intermediate account " + intermediate_key)
