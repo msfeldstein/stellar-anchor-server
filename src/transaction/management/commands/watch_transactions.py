@@ -16,6 +16,7 @@ def stream_transactions():
     address = Address(
         address=settings.STELLAR_DISTRIBUTION_ACCOUNT_ADDRESS, horizon_uri=settings.HORIZON_URI
     )
+    print(f">>>> Address {settings.STELLAR_DISTRIBUTION_ACCOUNT_ADDRESS}")
     return address.transactions(cursor="now", sse=True)
 
 

@@ -62,7 +62,6 @@ def create_stellar_deposit(transaction_id):
         print(">>>> Actually i did get the account")
     except HorizonError as address_exc:
         print(">>>> No address yet")
-        print(">>>>> ${address_exc.status_code}")
         # 404 code corresponds to Resource Missing.
         if address_exc.status_code != 404:
             logger.debug(
