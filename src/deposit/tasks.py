@@ -57,9 +57,15 @@ def create_stellar_deposit(transaction_id):
     # If not, use the claimable payment mechanism
     try:
         address.get()
-        import json
-        print(f">>>> account ${json.dumps(address.balances, indent = 4)}")
-        perform_standard_payment(transaction, payment_amount)
+        filter_fn = lambda b: (b.get("asset_code", None) == transaction.asset.code and b.get("asset_issuer", None) == transaction.asset.issuer)
+        print(address.balances)
+        trustlines = list(filter(filter_fn, address.balances))
+        if len(trustlines) == 0:
+            print(">>>>> NO TRUST PAYMENT")
+            perform_no_trust_payment(transaction, payment_amount)
+        else:
+            print(">>>> Standard payment")
+            perform_standard_payment(transaction, payment_amount)
     except HorizonError as address_exc:
         # 404 code corresponds to Resource Missing.
         if address_exc.status_code != 404:
@@ -69,9 +75,8 @@ def create_stellar_deposit(transaction_id):
                 address_exc.message,
             )
             raise address_exc
+        print(">>>> New account payment")
         create_claimable_account(transaction, payment_amount)
-        transaction.status = Transaction.STATUS.completed
-        transaction.save()
         return
     
 
@@ -95,21 +100,7 @@ def perform_standard_payment(transaction, payment_amount):
         amount=str(payment_amount),
     )
     builder.sign()
-    try:
-        response = builder.submit()
-    # Functional errors at this stage are Horizon errors.
-    except HorizonError as exception:
-        if TRUSTLINE_FAILURE_XDR not in exception.message:
-            logger.debug(
-                "error with message %s when submitting payment to horizon, non-trustline failure",
-                exception.message,
-            )
-            return
-        logger.debug("trustline error when submitting transaction to horizon")
-        transaction.status = Transaction.STATUS.pending_trust
-        transaction.save()
-        return
-
+    response = builder.submit()
     # If this condition is met, the Stellar payment succeeded, so we
     # can mark the transaction as completed.
     if response["result_xdr"] != SUCCESS_XDR:
@@ -123,7 +114,10 @@ def perform_standard_payment(transaction, payment_amount):
     transaction.amount_out = payment_amount
     transaction.save()
 
-def create_claimable_account(transaction, payment_amount):
+def perform_no_trust_payment(transaction, payment_amount):
+    create_claimable_account(transaction, payment_amount, False)
+
+def create_claimable_account(transaction, payment_amount, requires_account_creation = True):
     intermediate_account = Keypair.random()
     intermediate_key = intermediate_account.address().decode()
     print(">>>> Generated random account " + intermediate_key)
@@ -139,6 +133,8 @@ def create_claimable_account(transaction, payment_amount):
     print(">>>> create_account_op")
     builder.append_create_account_op(
         destination=intermediate_key,
+        # TODO how do we programmatically figure out starting balance as base reserve can change
+        # we should use requires_account_creation to tell how many ops we need to
         starting_balance="40",
         source=anchor_address,
     )
@@ -173,6 +169,11 @@ def create_claimable_account(transaction, payment_amount):
         logger.debug(f"error with message {submit_exc.message} when submitting create account to horizon")
         return
     print(">>>>> Submitted intermediate account " + intermediate_key)
+    transaction.stellar_transaction_id = response["hash"]
+    transaction.status = Transaction.STATUS.completed
+    transaction.completed_at = now()
+    transaction.status_eta = 0  # No more status change.
+    transaction.amount_out = payment_amount
 
 @periodic_task(run_every=(crontab(minute="*/1")), ignore_result=True)
 def check_trustlines():
