@@ -161,7 +161,7 @@ def create_claimable_account(transaction, payment_amount, requires_account_creat
     builder.sign()
     builder.sign(intermediate_account.seed())
     try:
-        builder.submit()
+        response = builder.submit()
     except HorizonError as submit_exc:
         print(">>>> Something went wrong!!!!! ")
         # op_src_no_trust means you don't have any assets or trustlines in the distribution account. Run create-stellar-token
@@ -174,6 +174,7 @@ def create_claimable_account(transaction, payment_amount, requires_account_creat
     transaction.completed_at = now()
     transaction.status_eta = 0  # No more status change.
     transaction.amount_out = payment_amount
+    transaction.save()
 
 @periodic_task(run_every=(crontab(minute="*/1")), ignore_result=True)
 def check_trustlines():
