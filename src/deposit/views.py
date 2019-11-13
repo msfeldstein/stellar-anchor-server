@@ -11,11 +11,14 @@ import json
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.clickjacking import xframe_options_exempt
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from stellar_sdk.keypair import Keypair
 from stellar_sdk.exceptions import Ed25519PublicKeyInvalidError
@@ -35,13 +38,13 @@ from deposit.tasks import create_stellar_deposit
 from .forms import DepositForm
 
 
-def _construct_interactive_url(request, transaction_id):
+def _construct_interactive_url(request, asset_code, account, transaction_id):
     """Constructs the URL for the deposit application for deposit info.
     This is located at `/deposit/interactive_deposit`."""
     qparams = urlencode(
         {
-            "asset_code": request.GET.get("asset_code"),
-            "account": request.GET.get("account"),
+            "asset_code": asset_code,
+            "account": account,
             "transaction_id": transaction_id,
         }
     )
@@ -204,14 +207,16 @@ def interactive_deposit(request):
 
 
 @validate_sep10_token()
-@api_view()
+@csrf_exempt
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
 def deposit(request):
     """
-    `GET /deposit` initiates the deposit and returns an interactive
+    `POST /transactions/deposit/interactive` initiates the deposit and returns an interactive
     deposit form to the user.
     """
-    asset_code = request.GET.get("asset_code")
-    stellar_account = request.GET.get("account")
+    asset_code = request.POST.get("asset_code")
+    stellar_account = request.POST.get("account")
 
     # Verify that the request is valid.
     if not all([asset_code, stellar_account]):
@@ -236,8 +241,7 @@ def deposit(request):
 
     # Construct interactive deposit pop-up URL.
     transaction_id = create_transaction_id()
-    url = _construct_interactive_url(request, transaction_id)
+    url = _construct_interactive_url(request, asset_code, stellar_account, transaction_id)
     return Response(
         {"type": "interactive_customer_info_needed", "url": url, "id": transaction_id},
-        status=status.HTTP_403_FORBIDDEN,
     )
