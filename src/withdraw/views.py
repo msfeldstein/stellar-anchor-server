@@ -10,8 +10,10 @@ from django.conf import settings
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.clickjacking import xframe_options_exempt
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 
 from helpers import (
@@ -26,11 +28,11 @@ from transaction.serializers import TransactionSerializer
 from .forms import WithdrawForm
 
 
-def _construct_interactive_url(request, transaction_id):
+def _construct_interactive_url(request, asset_code, transaction_id):
     """Constructs the URL for the interactive application for withdrawal info.
     This is located at `/withdraw/interactive_withdraw`."""
     qparams = urlencode(
-        {"asset_code": request.GET.get("asset_code"), "transaction_id": transaction_id}
+        {"asset_code": asset_code, "transaction_id": transaction_id}
     )
     path = reverse("interactive_withdraw")
     url_params = f"{path}?{qparams}"
@@ -121,13 +123,15 @@ def interactive_withdraw(request):
 
 
 @validate_sep10_token()
-@api_view()
+@csrf_exempt
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
 def withdraw(request):
     """
     `GET /withdraw` initiates the withdrawal and returns an interactive
     withdrawal form to the user.
     """
-    asset_code = request.GET.get("asset_code")
+    asset_code = request.POST.get("asset_code")
     if not asset_code:
         return render_error_response("'asset_code' is required")
 
@@ -139,7 +143,7 @@ def withdraw(request):
         return render_error_response(f"invalid operation for asset {asset_code}")
 
     transaction_id = create_transaction_id()
-    url = _construct_interactive_url(request, transaction_id)
+    url = _construct_interactive_url(request, asset_code, transaction_id)
     return Response(
         {"type": "interactive_customer_info_needed", "url": url, "id": transaction_id},
         status=status.HTTP_403_FORBIDDEN,
