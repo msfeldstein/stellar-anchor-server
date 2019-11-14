@@ -15,8 +15,6 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.clickjacking import xframe_options_exempt
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework import status
 from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
@@ -207,7 +205,6 @@ def interactive_deposit(request):
 
 
 @validate_sep10_token()
-@csrf_exempt
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
 def deposit(request):

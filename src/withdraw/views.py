@@ -10,8 +10,6 @@ from django.conf import settings
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.clickjacking import xframe_options_exempt
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework import status
 from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
@@ -123,7 +121,6 @@ def interactive_withdraw(request):
 
 
 @validate_sep10_token()
-@csrf_exempt
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
 def withdraw(request):
@@ -146,5 +143,4 @@ def withdraw(request):
     url = _construct_interactive_url(request, asset_code, transaction_id)
     return Response(
         {"type": "interactive_customer_info_needed", "url": url, "id": transaction_id},
-        status=status.HTTP_403_FORBIDDEN,
     )
