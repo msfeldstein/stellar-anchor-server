@@ -22,47 +22,46 @@ from transaction.models import Transaction
 from .helpers import mock_check_auth_success, mock_render_error_response, \
     mock_load_not_exist_account
 
+DEPOSIT_PATH = f"/transactions/deposit/interactive"
 HORIZON_SUCCESS_RESPONSE = {"result_xdr": SUCCESS_XDR, "hash": "test_stellar_id"}
-
 
 @pytest.mark.django_db
 @patch("helpers.check_auth", side_effect=mock_check_auth_success)
 def test_deposit_success(mock_check, client, acc1_usd_deposit_transaction_factory):
-    """`GET /deposit` succeeds with no optional arguments."""
+    """`POST /transactions/deposit/interactive` succeeds with no optional arguments."""
     del mock_check
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}", follow=True
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account},
     )
     content = json.loads(response.content)
-    assert response.status_code == 403
     assert content["type"] == "interactive_customer_info_needed"
 
 
 @pytest.mark.django_db
 @patch("helpers.check_auth", side_effect=mock_check_auth_success)
 def test_deposit_success_memo(mock_check, client, acc1_usd_deposit_transaction_factory):
-    """`GET /deposit` succeeds with valid `memo` and `memo_type`."""
+    """`POST /transactions/deposit/interactive` succeeds with valid `memo` and `memo_type`."""
     del mock_check
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}&memo=foo&memo_type=text",
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account, "memo_type": "text", "memo": "foo"},
         follow=True,
     )
 
     content = json.loads(response.content)
-    assert response.status_code == 403
     assert content["type"] == "interactive_customer_info_needed"
 
 
 @patch("helpers.check_auth", side_effect=mock_check_auth_success)
 def test_deposit_no_params(mock_check, client):
-    """`GET /deposit` fails with no required parameters."""
+    """`POST /transactions/deposit/interactive` fails with no required parameters."""
     # Because this test does not use the database, the changed setting
     # earlier in the file is not persisted when the tests not requiring
     # a database are run. Thus, we set that flag again here.
     del mock_check
-    response = client.get(f"/deposit", follow=True)
+    response = client.post(
+        DEPOSIT_PATH, {}, follow=True)
     content = json.loads(response.content)
 
     assert response.status_code == 400
@@ -71,9 +70,9 @@ def test_deposit_no_params(mock_check, client):
 
 @patch("helpers.check_auth", side_effect=mock_check_auth_success)
 def test_deposit_no_account(mock_check, client):
-    """`GET /deposit` fails with no `account` parameter."""
+    """`POST /transactions/deposit/interactive` fails with no `account` parameter."""
     del mock_check
-    response = client.get(f"/deposit?asset_code=NADA", follow=True)
+    response = client.post(DEPOSIT_PATH, {"asset_code": "NADA"}, follow=True)
     content = json.loads(response.content)
 
     assert response.status_code == 400
@@ -83,10 +82,10 @@ def test_deposit_no_account(mock_check, client):
 @pytest.mark.django_db
 @patch("helpers.check_auth", side_effect=mock_check_auth_success)
 def test_deposit_no_asset(mock_check, client, acc1_usd_deposit_transaction_factory):
-    """`GET /deposit` fails with no `asset_code` parameter."""
+    """`POST /transactions/deposit/interactive` fails with no `asset_code` parameter."""
     del mock_check
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(f"/deposit?account={deposit.stellar_account}", follow=True)
+    response = client.post(DEPOSIT_PATH, {"account": deposit.stellar_account}, follow=True)
     content = json.loads(response.content)
 
     assert response.status_code == 400
@@ -98,11 +97,11 @@ def test_deposit_no_asset(mock_check, client, acc1_usd_deposit_transaction_facto
 def test_deposit_invalid_account(
     mock_check, client, acc1_usd_deposit_transaction_factory
 ):
-    """`GET /deposit` fails with an invalid `account` parameter."""
+    """`POST /transactions/deposit/interactive` fails with an invalid `account` parameter."""
     del mock_check
     acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=USD&account=GBSH7WNSDU5FEIED2JQZIOQPZXREO3YNH2M5DIBE8L2X5OOAGZ7N2QI6",
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": "GBSH7WNSDU5FEIED2JQZIOQPZXREO3YNH2M5DIBE8L2X5OOAGZ7N2QI6"},
         follow=True,
     )
     content = json.loads(response.content)
@@ -116,11 +115,11 @@ def test_deposit_invalid_account(
 def test_deposit_invalid_asset(
     mock_check, client, acc1_usd_deposit_transaction_factory
 ):
-    """`GET /deposit` fails with an invalid `asset_code` parameter."""
+    """`POST /transactions/deposit/interactive` fails with an invalid `asset_code` parameter."""
     del mock_check
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=GBP&account={deposit.stellar_account}", follow=True
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "GBP", "account": deposit.stellar_account}, follow=True
     )
     content = json.loads(response.content)
 
@@ -133,11 +132,11 @@ def test_deposit_invalid_asset(
 def test_deposit_invalid_memo_type(
     mock_check, client, acc1_usd_deposit_transaction_factory
 ):
-    """`GET /deposit` fails with an invalid `memo_type` optional parameter."""
+    """`POST /transactions/deposit/interactive` fails with an invalid `memo_type` optional parameter."""
     del mock_check
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}&memo_type=test",
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account, "memo_type": "test"},
         follow=True,
     )
     content = json.loads(response.content)
@@ -149,15 +148,15 @@ def test_deposit_invalid_memo_type(
 @pytest.mark.django_db
 @patch("helpers.check_auth", side_effect=mock_check_auth_success)
 def test_deposit_no_memo(mock_check, client, acc1_usd_deposit_transaction_factory):
-    """`GET /deposit` fails with a valid `memo_type` and no `memo` provided."""
+    """`POST /transactions/deposit/interactive` fails with a valid `memo_type` and no `memo` provided."""
     del mock_check
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}&memo_type=text",
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account, "memo_type": "text"},
         follow=True,
     )
     content = json.loads(response.content)
-
+    print(response)
     assert response.status_code == 400
     assert content == {"error": "'memo_type' provided with no 'memo'"}
 
@@ -165,11 +164,11 @@ def test_deposit_no_memo(mock_check, client, acc1_usd_deposit_transaction_factor
 @pytest.mark.django_db
 @patch("helpers.check_auth", side_effect=mock_check_auth_success)
 def test_deposit_no_memo_type(mock_check, client, acc1_usd_deposit_transaction_factory):
-    """`GET /deposit` fails with a valid `memo` and no `memo_type` provided."""
+    """`POST /transactions/deposit/interactive` fails with a valid `memo` and no `memo_type` provided."""
     del mock_check
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}&memo=text",
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account, "memo": "text"},
         follow=True,
     )
     content = json.loads(response.content)
@@ -183,11 +182,11 @@ def test_deposit_no_memo_type(mock_check, client, acc1_usd_deposit_transaction_f
 def test_deposit_invalid_hash_memo(
     mock_check, client, acc1_usd_deposit_transaction_factory
 ):
-    """`GET /deposit` fails with a valid `memo` of incorrect `memo_type` hash."""
+    """`POST /transactions/deposit/interactive` fails with a valid `memo` of incorrect `memo_type` hash."""
     del mock_check
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}&memo=foo&memo_type=hash",
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account, "memo_type": "hash", "memo": "foo"},
         follow=True,
     )
     content = json.loads(response.content)
@@ -412,16 +411,16 @@ def test_deposit_interactive_confirm_success(
     acc1_usd_deposit_transaction_factory,
 ):
     """
-    `GET /deposit` and `GET /deposit/interactive_deposit` succeed with valid `account`
+    `POST /transactions/deposit/interactive` and `GET /deposit/interactive_deposit` succeed with valid `account`
     and `asset_code`.
     """
     del mock_check, mock_delay, mock_submit, mock_base_fee
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}", follow=True
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account},
+        follow=True
     )
     content = json.loads(response.content)
-    assert response.status_code == 403
     assert content["type"] == "interactive_customer_info_needed"
 
     transaction_id = content["id"]
@@ -505,11 +504,11 @@ def test_deposit_check_trustlines_horizon(
 
     keypair = Keypair.random()
     deposit.stellar_account = keypair.public_key
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}", follow=True
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account},
+        follow=True
     )
     content = json.loads(response.content)
-    assert response.status_code == 403
     assert content["type"] == "interactive_customer_info_needed"
 
     # Complete the interactive deposit. The transaction should be set
@@ -583,7 +582,7 @@ def test_deposit_check_trustlines_horizon(
 
 @pytest.mark.django_db
 def test_deposit_authenticated_success(client, acc1_usd_deposit_transaction_factory):
-    """`GET /deposit` succeeds with the SEP 10 authentication flow."""
+    """`POST /transactions/deposit/interactive` succeeds with the SEP 10 authentication flow."""
     client_address = "GDKFNRUATPH4BSZGVFDRBIGZ5QAFILVFRIRYNSQ4UO7V2ZQAPRNL73RI"
     client_seed = "SDKWSBERDHP3SXW5A3LXSI7FWMMO5H7HG33KNYBKWH2HYOXJG2DXQHQY"
     deposit = acc1_usd_deposit_transaction_factory()
@@ -608,24 +607,23 @@ def test_deposit_authenticated_success(client, acc1_usd_deposit_transaction_fact
     assert encoded_jwt
 
     header = {"HTTP_AUTHORIZATION": f"Bearer {encoded_jwt}"}
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}",
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account},
         follow=True,
         **header,
     )
     content = json.loads(response.content)
-    assert response.status_code == 403
     assert content["type"] == "interactive_customer_info_needed"
 
 
 @pytest.mark.django_db
 @patch("helpers.render_error_response", side_effect=mock_render_error_response)
 def test_deposit_no_jwt(mock_render, client, acc1_usd_deposit_transaction_factory):
-    """`GET /deposit` fails if a required JWT isn't provided."""
+    """`POST /transactions/deposit/interactive` fails if a required JWT isn't provided."""
     del mock_render
     deposit = acc1_usd_deposit_transaction_factory()
-    response = client.get(
-        f"/deposit?asset_code=USD&account={deposit.stellar_account}&memo=foo&memo_type=text",
+    response = client.post(
+        DEPOSIT_PATH, {"asset_code": "USD", "account": deposit.stellar_account, "memo_type": "text", "memo": "foo"},
         follow=True,
     )
     content = json.loads(response.content)

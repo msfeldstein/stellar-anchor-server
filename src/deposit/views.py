@@ -65,11 +65,11 @@ def _construct_more_info_url(request):
 # pass these to the pop-up.
 def _verify_optional_args(request):
     """Verify the optional arguments to `GET /deposit`."""
-    memo_type = request.GET.get("memo_type")
+    memo_type = request.POST.get("memo_type")
     if memo_type and memo_type not in ("text", "id", "hash"):
         return render_error_response("invalid 'memo_type'")
 
-    memo = request.GET.get("memo")
+    memo = request.POST.get("memo")
     if memo_type and not memo:
         return render_error_response("'memo_type' provided with no 'memo'")
 

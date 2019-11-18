@@ -40,6 +40,8 @@ def process_withdrawal(response, transaction):
     Check if a Stellar transaction's memo matches the ID of a database transaction.
     """
     # Validate the Horizon response.
+    import pdb
+    pdb.set_trace()
     try:
         memo_type = response["memo_type"]
         response_memo = response["memo"]
